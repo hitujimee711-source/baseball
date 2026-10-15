@@ -1,0 +1,13 @@
+{
+  "name": "音で楽しむ野球",
+  "short_name": "音野球",
+  "description": "視覚障害者向け音声野球ゲーム",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "lang": "ja",
+  "icons": []
+}

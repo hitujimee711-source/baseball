@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#07111f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="音で野球">
+<title>音で楽しむ野球</title>
+<style>
+:root{color-scheme:dark;--bg:#07111f;--card:#111d2d;--line:#52657d;--blue:#1769e0;--orange:#df5c08;--green:#138a54;--yellow:#ffd166;--text:#fff;--muted:#cbd5e1}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Yu Gothic",sans-serif;-webkit-text-size-adjust:100%}body{padding:max(16px,env(safe-area-inset-top)) 16px max(20px,env(safe-area-inset-bottom));touch-action:manipulation}.app{max-width:720px;margin:auto}.eyebrow{text-align:center;color:#73efb2;font-weight:800}.title{text-align:center;font-size:clamp(2rem,8vw,3.2rem);margin:.3rem 0}.lead{text-align:center;color:var(--muted);margin:0 0 16px}.card{background:var(--card);border:2px solid #314157;border-radius:22px;padding:18px;margin:14px 0}.score{display:grid;grid-template-columns:1fr 1.1fr 1fr;text-align:center;align-items:center;gap:10px}.score strong{display:block;font-size:2.8rem}.score .you strong{color:#73efb2}.inning{font-size:1.2rem;font-weight:900}.outs{color:var(--yellow)}#status{min-height:104px;display:flex;align-items:center;justify-content:center;text-align:center;background:#082762;border-color:#478bff;font-size:1.25rem;font-weight:900}.button{width:100%;min-height:68px;border:0;border-radius:20px;margin:6px 0;padding:14px 18px;color:#fff;font-size:1.25rem;font-weight:900;cursor:pointer}.button:focus-visible{outline:5px solid #fff;outline-offset:3px}.button:disabled{opacity:.42}.start{background:var(--green);min-height:82px;font-size:1.6rem}.pitch-start{background:var(--blue)}.swing{background:var(--orange);min-height:96px;font-size:1.8rem}.throw{background:var(--blue)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.pitch{background:#182638;border:2px solid var(--line)}.pitch[aria-pressed="true"]{background:var(--green);border-color:#a7f3d0}.secondary{background:#182638;border:2px solid var(--line);font-size:1rem}.hidden{display:none!important}.distance{text-align:center;font-size:1.2rem;font-weight:900}.help{color:var(--muted);line-height:1.7}.help summary{color:#fff;font-size:1.1rem;font-weight:900;cursor:pointer}.kbd{font-family:ui-monospace,monospace;border:1px solid #94a3b8;border-bottom-width:3px;border-radius:7px;padding:2px 7px;color:#fff}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}@media(max-width:430px){.score{grid-template-columns:1fr 1.25fr 1fr}.score strong{font-size:2.25rem}.grid{gap:8px}.button{font-size:1.08rem}}
+</style>
+</head>
+<body>
+<main class="app">
+<header><div class="eyebrow">アクセシビリティ対応</div><h1 class="title">音で楽しむ野球</h1><p class="lead">音が最も大きくなる瞬間にスイング！</p></header>
+<section class="card score" aria-label="試合状況">
+<div class="you">あなた<strong id="playerScore">0</strong></div><div class="inning"><span id="inning">1回表</span><br><span class="outs" id="outs">0アウト</span></div><div>コンピューター<strong id="cpuScore">0</strong></div>
+</section>
+<div id="status" class="card" role="status" aria-live="assertive" aria-atomic="true">ゲームを開始してください</div>
+<section id="startPanel"><button id="startButton" class="button start">ゲームを開始</button></section>
+<section id="batPanel" class="hidden" aria-label="攻撃操作">
+<button id="ballButton" class="button pitch-start">投球開始 <span class="sr-only">スペースキーでも操作できます</span></button>
+<button id="swingButton" class="button swing" disabled>スイング！ <span class="sr-only">エンターキーでも操作できます</span></button>
+<p id="distance" class="distance" aria-live="polite"></p>
+</section>
+<section id="fieldPanel" class="hidden" aria-label="守備操作">
+<fieldset class="card"><legend>球種を選択</legend><div class="grid" id="pitchGrid"></div></fieldset>
+<button id="throwButton" class="button throw">この球種で投げる</button>
+</section>
+<div class="grid"><button id="muteButton" class="button secondary" aria-pressed="false">消音</button><button id="resetButton" class="button secondary">最初から</button></div>
+<details class="card help"><summary>遊び方・キーボード操作</summary><p>攻撃では投球開始後、音が最も大きい瞬間にスイングします。守備では球種を選んで投げます。</p><p><span class="kbd">Space</span> 投球開始、<span class="kbd">Enter</span> スイング、矢印キーで球種選択、<span class="kbd">P</span> 守備で投球、<span class="kbd">R</span> 試合状況読み上げ、<span class="kbd">H</span> 操作説明。</p></details>
+</main>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);const pitches=['ストレート','カーブ','スライダー','フォーク'];
+let s={started:false,muted:false,inning:1,half:'表',outs:0,player:0,cpu:0,pitch:0,phase:'ready'};let ctx=null,timer=null,startedAt=0,currentOsc=null;
+function audio(){if(!ctx)ctx=new(window.AudioContext||window.webkitAudioContext)();if(ctx.state==='suspended')ctx.resume();return ctx}
+function tone(freq,dur,type='sine',vol=.08,delay=0){if(s.muted)return;const a=audio(),o=a.createOscillator(),g=a.createGain();o.type=type;o.frequency.value=freq;g.gain.setValueAtTime(.0001,a.currentTime+delay);g.gain.exponentialRampToValueAtTime(vol,a.currentTime+delay+.02);g.gain.exponentialRampToValueAtTime(.0001,a.currentTime+delay+dur);o.connect(g).connect(a.destination);o.start(a.currentTime+delay);o.stop(a.currentTime+delay+dur+.05)}
+function crowd(big=false){if(s.muted)return;const a=audio(),len=a.sampleRate*(big?1.8:.8),b=a.createBuffer(1,len,a.sampleRate),d=b.getChannelData(0);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*(1-i/len);const src=a.createBufferSource(),f=a.createBiquadFilter(),g=a.createGain();f.type='bandpass';f.frequency.value=big?900:1200;g.gain.value=big?.2:.1;src.buffer=b;src.connect(f).connect(g).connect(a.destination);src.start()}
+function say(text){const el=$('status');el.textContent='';setTimeout(()=>el.textContent=text,35)}
+function stopPitchSound(){try{if(currentOsc)currentOsc.stop()}catch(e){}currentOsc=null}
+function update(){ $('playerScore').textContent=s.player;$('cpuScore').textContent=s.cpu;$('inning').textContent=`${s.inning}回${s.half}`;$('outs').textContent=`${s.outs}アウト`;$('startPanel').classList.toggle('hidden',s.started);$('batPanel').classList.toggle('hidden',!s.started||s.half!=='表'||s.phase==='gameover');$('fieldPanel').classList.toggle('hidden',!s.started||s.half!=='裏'||s.phase==='gameover');$('ballButton').disabled=s.phase!=='ready';$('swingButton').disabled=s.phase!=='flying';$('throwButton').disabled=s.phase!=='ready';document.querySelectorAll('.pitch').forEach((b,i)=>b.setAttribute('aria-pressed',i===s.pitch?'true':'false'))}
+function reset(started=false){clearTimeout(timer);stopPitchSound();s={started,muted:s.muted,inning:1,half:'表',outs:0,player:0,cpu:0,pitch:0,phase:'ready'};$('distance').textContent='';update();say(started?'プレイボール。1回表、あなたの攻撃です。投球開始ボタンを押してください':'ゲームを開始してください')}
+function startGame(){audio();reset(true);tone(523,.18,'square',.08);tone(659,.18,'square',.08,.2);tone(784,.35,'square',.08,.4);setTimeout(()=>$('ballButton').focus(),700)}
+function beginBall(){if(!s.started||s.half!=='表'||s.phase!=='ready')return;s.phase='flying';$('distance').textContent='';startedAt=performance.now();say('投げました。音が最も大きくなる瞬間にスイングしてください');update();if(!s.muted){const a=audio(),o=a.createOscillator(),g=a.createGain();o.type='sine';o.frequency.setValueAtTime(260,a.currentTime);o.frequency.exponentialRampToValueAtTime(850,a.currentTime+1.35);o.frequency.exponentialRampToValueAtTime(300,a.currentTime+2.7);g.gain.setValueAtTime(.015,a.currentTime);g.gain.linearRampToValueAtTime(.28,a.currentTime+1.35);g.gain.linearRampToValueAtTime(.01,a.currentTime+2.7);o.connect(g).connect(a.destination);o.start();o.stop(a.currentTime+2.75);currentOsc=o}timer=setTimeout(()=>resolveSwing(9999),2850)}
+function swing(){if(s.phase==='flying')resolveSwing(performance.now()-startedAt)}
+function resolveSwing(elapsed){clearTimeout(timer);stopPitchSound();s.phase='result';const er=Math.abs(elapsed-1350);if(er<=130){const d=Math.round(105+Math.random()*35);s.player++;$('distance').textContent=`飛距離：${d}メートル`;tone(880,.12,'square',.18);crowd(true);say(`ホームラン。飛距離${d}メートル。1点入りました`)}else if(er<=390){const d=Math.round(25+(390-er)/5);$('distance').textContent=`飛距離：${d}メートル`;tone(660,.1,'square',.13);crowd();say(`ヒット。飛距離${d}メートル`)}else{tone(120,.28,'sawtooth',.09);say('アウト');addOut()}update();timer=setTimeout(()=>{if(s.phase!=='gameover'){s.phase='ready';update()}},1800)}
+function addOut(){s.outs++;if(s.outs>=3){s.outs=0;setTimeout(changeSides,900)}}
+function throwPitch(){if(!s.started||s.half!=='裏'||s.phase!=='ready')return;s.phase='result';const p=pitches[s.pitch];tone(220+s.pitch*70,.22,'sine',.12);const r=Math.random();if(r<.64){say(`${p}。アウトを取りました`);crowd();addOut()}else if(r<.9){say(`${p}を打たれました。ヒットです`);tone(600,.1,'square',.1)}else{s.cpu++;crowd(true);say(`${p}を打たれました。ホームラン。コンピューターに1点入りました`)}update();timer=setTimeout(()=>{if(s.phase!=='gameover'){s.phase='ready';update()}},1600)}
+function changeSides(){if(s.half==='表'){s.half='裏';s.phase='ready';say(`${s.inning}回裏、あなたの守備です。球種を選び、投球ボタンを押してください`)}else if(s.inning>=9){s.phase='gameover';const result=s.player===s.cpu?'引き分け':s.player>s.cpu?'あなたの勝ち':'コンピューターの勝ち';say(`試合終了。${s.player}対${s.cpu}、${result}です`);crowd(s.player>=s.cpu)}else{s.inning++;s.half='表';s.phase='ready';say(`${s.inning}回表、あなたの攻撃です`)}update()}
+function selectPitch(i){s.pitch=i;update();say(`${pitches[i]}を選択しました`)}
+pitches.forEach((p,i)=>{const b=document.createElement('button');b.className='button pitch';b.textContent=p;b.setAttribute('aria-pressed','false');b.onclick=()=>selectPitch(i);$('pitchGrid').appendChild(b)});
+$('startButton').onclick=startGame;$('ballButton').onclick=beginBall;$('swingButton').onclick=swing;$('throwButton').onclick=throwPitch;$('resetButton').onclick=()=>reset(false);$('muteButton').onclick=()=>{s.muted=!s.muted;$('muteButton').textContent=s.muted?'音を出す':'消音';$('muteButton').setAttribute('aria-pressed',String(s.muted));say(s.muted?'音を消しました':'音を出しました');if(!s.muted)audio()};
+addEventListener('keydown',e=>{if(['Space','Enter','ArrowUp','ArrowRight','ArrowDown','ArrowLeft'].includes(e.code))e.preventDefault();if(e.code==='Space')beginBall();else if(e.code==='Enter')swing();else if(e.code==='KeyP')throwPitch();else if(e.code==='KeyR')say(`${s.inning}回${s.half}、${s.outs}アウト。あなた${s.player}点、コンピューター${s.cpu}点`);else if(e.code==='KeyH')say('攻撃はスペースで投球開始、エンターでスイング。守備は矢印キーで球種選択、Pキーで投球します');else{const map={ArrowUp:0,ArrowRight:1,ArrowDown:2,ArrowLeft:3};if(e.code in map)selectPitch(map[e.code])}});
+update();
+</script>
+</body>
+</html>
